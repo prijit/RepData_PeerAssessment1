@@ -7,7 +7,7 @@ output:
 
 
 ## Loading and preprocessing the data
-The following packages are used to produce this report:
+Use the following packages for generating the document:
 
 ```{r}
 library(ggplot2)
@@ -15,13 +15,14 @@ library(knitr)
 library(scales)
 ```
 
-Read the dataset and calculate number of steps per day
+Unzip and read the dataset
 ```{r cache=TRUE}
 activitydata <- read.csv(unz("activity.zip", "activity.csv"), colClasses = c("numeric", "Date", "numeric"))
-
 ```
 
 ## What is mean total number of steps taken per day?
+
+Calculate number of steps taken per day and plot.
 ```{r, message=FALSE}
 stepsPerDay <- aggregate(activitydata$steps ~ activitydata$date, data = activitydata , FUN = sum, na.action = na.omit)
 
@@ -34,11 +35,16 @@ median(stepsPerDay$`activitydata$steps`)
 
 ## What is the average daily activity pattern?
 
-```{r, message=FALSE}
+Calculate number of steps per interval over all days and plot.
+
+```{r cache=TRUE, message=FALSE}
 stepsPerInterval <- aggregate(activitydata$steps ~ activitydata$interval, data = activitydata , FUN = mean, na.action = na.omit)
 
 plot(stepsPerInterval$`activitydata$interval`, stepsPerInterval$`activitydata$steps`, type = "l", xlab = "Interval", ylab = "Mean number of steps")
+```
 
+Display maximum number of steps taken and the interval at which it happened
+```{r cache=TRUE, message=FALSE}
 maximumSteps <- stepsPerInterval[which.max(stepsPerInterval$`activitydata$steps`), ]
 intervalAtWhichMaximumStepsTaken <- maximumSteps$`activitydata$interval`
 maximumStepsTakenAtAnyGivenInterval <- maximumSteps$`activitydata$steps`
@@ -46,27 +52,33 @@ intervalAtWhichMaximumStepsTaken
 maximumStepsTakenAtAnyGivenInterval
 ```
 
-
 ## Imputing missing values
+Find number of missing rows
 ```{r, message=FALSE}
-
 missingRows <- is.na(activitydata$steps)
 sum(missingRows)
+```
 
-stepsPerIntervalList <- aggregate(x=list(steps=activitydata$steps), by=list(interval=activitydata$interval),
-                      FUN=mean, na.rm=TRUE)
+Replace missing values with the mean of interval
+```{r cache=TRUE, message=FALSE}
+stepsPerIntervalList <- aggregate(x=list(steps=activitydata$steps), by=list(interval=activitydata$interval), FUN=mean, na.rm=TRUE)
 
 replaceWithMeanOfInterval <- function(steps, interval) {
   filled <- NA
-  if (!is.na(steps))
+  if (!is.na(steps)) {
     filled <- c(steps)
-  else
+  }
+  else {
     filled <- (stepsPerIntervalList[stepsPerIntervalList$interval==interval, "steps"])
+  }
   return(filled)
 }
 completeActivityData <- activitydata
 completeActivityData$steps <- mapply(replaceWithMeanOfInterval, completeActivityData$steps, completeActivityData$interval)
+```
 
+Plot steps per day and find the new mean and median
+```{r cache=TRUE, message=FALSE}
 completeStepsPerDay <- aggregate(completeActivityData$steps ~ completeActivityData$date, data = completeActivityData , FUN = sum, na.action = na.omit)
 qplot(completeStepsPerDay$`completeActivityData$steps`, data = completeStepsPerDay, binwidth=2000, xlab = "Number of steps", ylab = "Count")
 
@@ -74,35 +86,36 @@ mean(completeStepsPerDay$`completeActivityData$steps`)
 median(completeStepsPerDay$`completeActivityData$steps`)
 ```
 
+With this method of imputing missing data the mean remain the same as expected because we replace the missing values with the mean of the intervals but the median changes and is the same as the mean.
 
 ## Are there differences in activity patterns between weekdays and weekends?
-```{r, message=FALSE, fig.width=10, fig.height=8}
-
+Create new factor variable called 'typeOfDay'
+```{r cache=TRUE}
 completeActivityData$typeOfDay <- as.numeric(format(completeActivityData$date, "%u"))
 completeActivityData[completeActivityData$typeOfDay > 5, "typeOfDay"] <- "weekend"
 completeActivityData[completeActivityData$typeOfDay != "weekend", "typeOfDay"] <- "weekday"
 completeActivityData$typeOfDay <- as.factor(completeActivityData$typeOfDay)
+```
 
-datWeekdays <- completeActivityData[completeActivityData$typeOfDay == "weekday", ]
-datWeekends <- completeActivityData[completeActivityData$typeOfDay == "weekend", ]
+Seperate weekday and weekend steps taken per interval 
+```{r cache=TRUE, message=FALSE}
+weekdaysData <- completeActivityData[completeActivityData$typeOfDay == "weekday", ]
+weekendData <- completeActivityData[completeActivityData$typeOfDay == "weekend", ]
 
-datSplitWeekdays <- split(datWeekdays$steps, datWeekdays$interval)
-datSplitWeekends <- split(datWeekends$steps, datWeekends$interval)
+weekdaySteps <- split(weekdaysData$steps, weekdaysData$interval)
+weekendSteps <- split(weekendData$steps, weekendData$interval)
+```
 
-# Find the average for each interval
-
-meanStepsPerWeekdayInterval <- sapply(datSplitWeekdays, mean)
-meanStepsPerWeekendInterval <- sapply(datSplitWeekends, mean)
+Find mean and plot
+```{r cache=TRUE, message=FALSE, fig.width=10, fig.height=8}
+meanStepsPerWeekdayInterval <- sapply(weekdaySteps, mean)
+meanStepsPerWeekendInterval <- sapply(weekendSteps, mean)
 
 intervals <- unique(completeActivityData$interval)
 
 par(mfcol=c(2,1))
-plot(intervals, meanStepsPerWeekdayInterval, type="l",
-     main="Average number of steps per interval across all weekdays", 
-     xlab="Interval", ylab="Average steps across all weekdays", 
-     lwd=2)
-plot(intervals, meanStepsPerWeekendInterval, type="l",
-     main="Average number of steps per interval across all weekends", 
-     xlab="Interval", ylab="Average steps across all weekends", 
-     lwd=2)
+
+plot(intervals, meanStepsPerWeekdayInterval, type="l", main="Mean number of steps per weekday interval", xlab="Interval", ylab="Number of steps", lwd=2)
+
+plot(intervals, meanStepsPerWeekendInterval, type="l", main="Mean number of steps per weekend interval", xlab="Interval", ylab="Number of steps", lwd=2)
 ```
